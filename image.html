@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Encryption Suite - Encryptify</title>
+    <meta name="description" content="Steganos LSB Steganography, PicIt Text-to-Image Converter, and Image XOR Scrambler running privately in your browser.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300f0ff'><path d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z'/></svg>">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="static/css/style.css">
+    <link rel="stylesheet" href="static/css/components.css">
+</head>
+<body>
+    <div class="ambient-glow"></div>
+
+    <div class="app-container">
+        <!-- Top Navigation -->
+        <nav class="navbar">
+            <a href="/" class="brand">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                </div>
+                <div class="brand-name">Encryptify</div>
+            </a>
+
+            <!-- Engine Navigation Buttons -->
+            <div class="navbar-links">
+                <a href="/enigmatrix" class="nav-tab-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Enigmatrix
+                </a>
+                <a href="/image" class="nav-tab-link active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    Image Suite
+                </a>
+                <a href="/text" class="nav-tab-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                    Text Suite
+                </a>
+            </div>
+
+            <div class="engine-pill" id="engine-status-pill">
+                <div class="pill-dot busy" id="engine-status-dot"></div>
+                <span id="engine-status-text">Initializing Security Engine...</span>
+            </div>
+        </nav>
+
+        <!-- ==================== IMAGE CRYPTOGRAPHY SUITE ==================== -->
+        <main id="tab-image" class="panel active" style="margin-top: 10px;">
+            <div class="grid-2">
+                <!-- 1. PicIt Synthetic Image Module -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">PicIt - Text ⇄ Image Converter</h2>
+                            <p class="input-hint">Synthesize secret messages into standalone PNG images and decode them back to text.</p>
+                        </div>
+                        <span class="card-badge">Text to Image</span>
+                    </div>
+
+                    <!-- Text Encryption Option for PicIt -->
+                    <div class="form-group">
+                        <label for="pct-cipher-select" class="form-label">Text Cipher in Image</label>
+                        <select id="pct-cipher-select" class="select-box">
+                            <option value="vigenere" selected>Vigenere</option>
+                            <option value="scramble">PRNG Scramble</option>
+                            <option value="xor">Bitwise XOR</option>
+                        </select>
+                        <div id="pct-vigenere-options" style="margin-top: 10px; padding: 12px 16px; background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.18); border-radius: var(--radius-md);">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="pct-vigenere-plus-check" style="width: 17px; height: 17px; accent-color: var(--primary);">
+                                <span style="font-size: 0.92rem; font-weight: 600; color: #fff;">Enable Vigenere+ (Add PRNG Key Scramble)</span>
+                            </label>
+                            <div class="input-hint" style="margin-left: 27px; margin-top: 4px;">
+                                <strong>Vigenere:</strong> Polyalphabetic character shift only.<br>
+                                <strong>Vigenere+:</strong> Performs key-seeded character position scrambling before shifting for stronger entropy.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="form-label-row">
+                            <label for="pct-message" class="form-label">Secret Text Message</label>
+                            <button type="button" class="text-upload-badge-btn" data-target="pct-message" title="Upload text from file" aria-label="Upload text file">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </button>
+                        </div>
+                        <textarea id="pct-message" class="textarea-box" placeholder="Enter the secret message you want to embed..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pct-key" class="form-label">Encryption Key / Password</label>
+                        <div class="input-password-wrapper">
+                            <input type="password" id="pct-key" class="input-box" placeholder="Enter key for PicIt">
+                            <button type="button" class="password-toggle-btn" data-target="pct-key" title="Show/hide key"></button>
+                        </div>
+                    </div>
+
+                    <div class="dropzone" id="pct-dropzone" style="padding: 20px; margin-bottom: 20px; cursor: pointer;">
+                        <div class="dropzone-title" style="font-size: 0.95rem;">Or Drop Existing PicIt Image to Extract Text</div>
+                    </div>
+                    <input type="file" id="pct-file-input" accept="image/*" style="display: none;">
+
+                    <div class="file-preview-card" id="pct-file-card" style="margin-bottom: 20px;">
+                        <div class="file-info">
+                            <div class="file-name" id="pct-file-name">picit.png</div>
+                        </div>
+                        <button class="remove-file-btn" id="pct-remove-file">✕</button>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="pct-generate-btn">Generate Image</button>
+                        <button class="btn btn-secondary" id="pct-extract-btn">Decode Secret Text</button>
+                    </div>
+
+                    <!-- PicIt Progress Track -->
+                    <div class="progress-container" id="pct-progress">
+                        <div class="progress-header">
+                            <span id="pct-progress-sub">Processing PicIt Image...</span>
+                            <span id="pct-progress-text">0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill" id="pct-progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <!-- PicIt Output -->
+                    <div class="result-card" id="pct-result-card">
+                        <div class="image-preview-wrapper">
+                            <img id="pct-preview-img" alt="PicIt Preview" title="Click to view full preview">
+                        </div>
+                        <div class="btn-group" style="margin-top: 12px;">
+                            <button class="btn btn-secondary" id="pct-preview-btn" style="flex: 1;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                Preview Image
+                            </button>
+                            <button class="btn btn-emerald" id="pct-download-btn" style="flex: 2;">Download PNG</button>
+                        </div>
+                    </div>
+
+                    <!-- PicIt Extracted Text Output -->
+                    <div id="pct-extracted-box" style="display: none; margin-top: 20px; background: rgba(0,0,0,0.4); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--accent-emerald);">
+                        <label class="form-label" style="color: var(--accent-emerald);">Decoded Message:</label>
+                        <textarea id="pct-extracted-text" class="textarea-box" readonly style="min-height: 80px;"></textarea>
+                        <div class="btn-group" style="margin-top: 12px;">
+                            <button type="button" class="btn btn-secondary" id="pct-copy-extracted-btn" style="flex: 1;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copy Text
+                            </button>
+                            <button type="button" class="btn btn-emerald" id="pct-save-extracted-btn" style="flex: 1;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Save as .txt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Steganography (Steganos) Module -->
+                <div class="glass-card">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">Steganos - LSB Steganography</h2>
+                            <p class="input-hint">Conceal secret messages into pixel least-significant bits with randomized coordinate traversal and carrier key protection.</p>
+                        </div>
+                        <span class="card-badge">LSB Steganography</span>
+                    </div>
+
+                    <!-- Text Encryption Option for Steganos -->
+                    <div class="form-group">
+                        <label for="steg-cipher-select" class="form-label">Text Cipher in Steganos</label>
+                        <select id="steg-cipher-select" class="select-box">
+                            <option value="vigenere" selected>Vigenere</option>
+                            <option value="scramble">PRNG Scramble</option>
+                            <option value="xor">Bitwise XOR</option>
+                        </select>
+                        <div id="steg-vigenere-options" style="margin-top: 10px; padding: 12px 16px; background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.18); border-radius: var(--radius-md);">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="steg-vigenere-plus-check" style="width: 17px; height: 17px; accent-color: var(--primary);">
+                                <span style="font-size: 0.92rem; font-weight: 600; color: #fff;">Enable Vigenere+ (Add PRNG Key Scramble)</span>
+                            </label>
+                            <div class="input-hint" style="margin-left: 27px; margin-top: 4px;">
+                                <strong>Vigenere:</strong> Polyalphabetic character shift only.<br>
+                                <strong>Vigenere+:</strong> Performs key-seeded character position scrambling before shifting for stronger entropy.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dropzone" id="steg-dropzone" style="padding: 24px; cursor: pointer; margin-bottom: 22px;">
+                        <div class="dropzone-title">Drop Carrier Image (PNG/JPEG)</div>
+                    </div>
+                    <input type="file" id="steg-file-input" accept="image/*" style="display: none;">
+
+                    <div class="file-preview-card" id="steg-file-card" style="margin-bottom: 22px;">
+                        <div class="file-info">
+                            <div class="file-name" id="steg-file-name">photo.png</div>
+                        </div>
+                        <button class="remove-file-btn" id="steg-remove-file">✕</button>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="form-label-row">
+                            <label for="steg-message" class="form-label">Secret Message to Embed</label>
+                            <button type="button" class="text-upload-badge-btn" data-target="steg-message" title="Upload text from file" aria-label="Upload text file">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </button>
+                        </div>
+                        <textarea id="steg-message" class="textarea-box" style="min-height: 90px;" placeholder="Message to hide inside the image pixels..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="steg-key" class="form-label">Encryption Key</label>
+                        <div class="input-password-wrapper">
+                            <input type="password" id="steg-key" class="input-box" placeholder="Key for steganography">
+                            <button type="button" class="password-toggle-btn" data-target="steg-key" title="Show/hide key"></button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="steg-protect-toggle" style="width: 16px; height: 16px; accent-color: var(--primary);">
+                            <span class="form-label" style="margin-bottom: 0;">Password Protected (Requires key to extract)</span>
+                        </label>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="steg-hide-btn">Embed Message</button>
+                        <button class="btn btn-secondary" id="steg-extract-btn">Extract Hidden Message</button>
+                    </div>
+
+                    <!-- Stego Progress Track -->
+                    <div class="progress-container" id="steg-progress">
+                        <div class="progress-header">
+                            <span id="steg-progress-sub">Processing Steganography...</span>
+                            <span id="steg-progress-text">0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill" id="steg-progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <!-- Stego Output: Before and After Comparison -->
+                    <div class="result-card" id="steg-result-card">
+                        <div class="steg-comparison-grid">
+                            <div class="steg-comparison-card before">
+                                <div class="steg-comparison-label">Before &bull; Carrier</div>
+                                <div class="image-preview-wrapper">
+                                    <img id="steg-before-img" alt="Original Carrier Image" title="Click to view full preview">
+                                </div>
+                            </div>
+                            <div class="steg-comparison-card after">
+                                <div class="steg-comparison-label">After &bull; Payload Hidden</div>
+                                <div class="image-preview-wrapper">
+                                    <img id="steg-preview-img" alt="Stegano Output Image" title="Click to view full preview">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="btn-group" style="margin-top: 12px;">
+                            <button class="btn btn-secondary" id="steg-preview-btn" style="flex: 1;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                Preview Image
+                            </button>
+                            <button class="btn btn-emerald" id="steg-download-btn" style="flex: 2;">Download Stego Image</button>
+                        </div>
+                    </div>
+
+                    <div id="steg-extracted-box" style="display: none; margin-top: 20px; background: rgba(0,0,0,0.4); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--accent-emerald);">
+                        <label class="form-label" style="color: var(--accent-emerald);">Decoded Message:</label>
+                        <textarea id="steg-extracted-text" class="textarea-box" readonly style="min-height: 80px;"></textarea>
+                        <div class="btn-group" style="margin-top: 12px;">
+                            <button type="button" class="btn btn-secondary" id="steg-copy-extracted-btn" style="flex: 1;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copy Text
+                            </button>
+                            <button type="button" class="btn btn-emerald" id="steg-save-extracted-btn" style="flex: 1;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                Save as .txt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Image XOR & Pixel Scrambling (Full Width) -->
+            <div class="glass-card" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">Image XOR Scrambler / Unscrambler</h2>
+                        <p class="input-hint">Cryptographically scramble pixel coordinates and apply bitwise XOR keystreams to lock and unlock images.</p>
+                    </div>
+                    <span class="card-badge">XOR & Scramble</span>
+                </div>
+
+                <div class="grid-2">
+                    <div>
+                        <div class="dropzone" id="ixor-dropzone" style="cursor: pointer;">
+                            <div class="dropzone-title">Drop Image to Encrypt / Decrypt</div>
+                        </div>
+                        <input type="file" id="ixor-file-input" accept="image/*" style="display: none;">
+
+                        <div class="file-preview-card" id="ixor-file-card" style="margin-bottom: 16px;">
+                            <div class="file-info">
+                                <div class="file-name" id="ixor-file-name">image.png</div>
+                            </div>
+                            <button class="remove-file-btn" id="ixor-remove-file">✕</button>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label for="ixor-key" class="form-label">Encryption Key</label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="ixor-key" class="input-box" placeholder="Enter key for image encryption">
+                                <button type="button" class="password-toggle-btn" data-target="ixor-key" title="Show/hide key"></button>
+                            </div>
+                        </div>
+
+                        <div class="btn-group">
+                            <button class="btn btn-primary" id="ixor-encrypt-btn">Encrypt Image</button>
+                            <button class="btn btn-secondary" id="ixor-decrypt-btn">Decrypt Image</button>
+                        </div>
+
+                        <!-- Image XOR Progress Track -->
+                        <div class="progress-container" id="ixor-progress">
+                            <div class="progress-header">
+                                <span id="ixor-progress-sub">Processing Image Pixels...</span>
+                                <span id="ixor-progress-text">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill" id="ixor-progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="result-card" id="ixor-result-card" style="margin-top: 0;">
+                            <div class="image-preview-wrapper">
+                                <img id="ixor-preview-img" alt="XOR Preview" title="Click to view full preview">
+                            </div>
+                            <div class="btn-group" style="margin-top: 12px;">
+                                <button class="btn btn-secondary" id="ixor-preview-btn" style="flex: 1;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    Preview Image
+                                </button>
+                                <button class="btn btn-emerald" id="ixor-download-btn" style="flex: 2;">Download Output Image</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; Encryptify &bull; Secure, private encryption running completely on your device. Your data and keys are never uploaded or stored.</p>
+        </footer>
+    </div>
+
+    <!-- ==================== IMAGE PREVIEW MODAL ==================== -->
+    <div class="image-preview-modal-overlay" id="image-preview-modal">
+        <div class="image-preview-modal-container">
+            <div class="image-preview-modal-header">
+                <h3 class="image-preview-modal-title" id="image-preview-modal-title">Image Preview</h3>
+                <button class="image-preview-modal-close" id="image-preview-modal-close" aria-label="Close preview">&times;</button>
+            </div>
+            <div class="image-preview-modal-body">
+                <img id="image-preview-modal-img" src="" alt="High resolution preview">
+            </div>
+            <div class="image-preview-modal-footer">
+                <span class="image-preview-modal-meta" id="image-preview-modal-meta">High Resolution Output</span>
+                <button class="btn btn-secondary" onclick="window.closeImagePreviewModal()" style="padding: 6px 16px; font-size: 0.85rem;">Close Preview</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="static/js/pyodide_bridge.js"></script>
+    <script src="static/js/app.js"></script>
+    <script src="static/js/image_ui.js"></script>
+</body>
+</html>

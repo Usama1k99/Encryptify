@@ -162,6 +162,7 @@ def extract_data(img: Image.Image, cb_list:list['function'], cb_args:list[list])
     # checking if the encryption tuple is equal to (1,0,1) which is not valid case
     enc_tup = get_enc_tup(img)
     if enc_tup == (1, 0, 1) or enc_tup == (0, 0, 1):
+        img.close()
         raise TypeError("Given image is not encoded by Steganos, code 1")
 
     orientation, sec_level, lvl = enc_tup
@@ -238,6 +239,7 @@ def extract_data(img: Image.Image, cb_list:list['function'], cb_args:list[list])
 
     pfx = rawtxt[:len(PREFIX_TEXT)]
     if pfx != PREFIX_TEXT:
+        img.close()
         raise TypeError("Given image is not encoded by Steganos, code 2")
     # End of process
     text = rawtxt.split(PREFIX_TEXT)[1]

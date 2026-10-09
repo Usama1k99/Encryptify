@@ -339,7 +339,15 @@ def picit_view(req):
         img: Image.Image = None
         if operation=='decrypt':
             try:
-                img = Image.open(imgf.file, formats=formats)
+                if imgf:
+                    img = Image.open(imgf.file, formats=formats)
+                else:
+                    values = {
+                        'decheck' : "checked",
+                    }
+                    params['values'] = values
+                    params['err'] = "Please fill all the required fields"
+                    return render(req, 'image/picit.html', params)
             except PIL.UnidentifiedImageError:
                 params['err'] = f"You are supposed to only select static image files of formats " \
                                 f"{', '.join([x.lower() for x in formats])}."

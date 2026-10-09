@@ -6,6 +6,10 @@
     align-self: center;
 }
 
+.btn_container > a{
+    border: none;
+}
+
 @media (max-width: 768px){
     .btn_container{
         width: 90vw;

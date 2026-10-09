@@ -48,16 +48,16 @@ function download_text_file(data,filename) {
         console.log("");
     }
     const txtfile_blob = new Blob([data], { type: 'text/plain' });
-    const txtfile_elem = window.document.createElement('a');
-    txtfile_elem.href = window.URL.createObjectURL(txtfile_blob);
-    txtfile_elem.target = '_blank';
-    txtfile_elem.download = filename;
-    txtfile_elem.click();
+    const txtfile_dbtn = window.document.createElement('a');
+    txtfile_dbtn.href = window.URL.createObjectURL(txtfile_blob);
+    txtfile_dbtn.target = '_blank';
+    txtfile_dbtn.download = filename;
+    txtfile_dbtn.click();
 }
 
 function get_csrf_token(){
-    let csrf_inputs = document.getElementsByName("csrfmiddlewaretoken");
-    return csrf_inputs[0].value;
+    let [csrf_input] = document.getElementsByName("csrfmiddlewaretoken");
+    return csrf_input.value;
 }
 
 function preventDefault(e){
@@ -75,7 +75,20 @@ function enableDropFiles(element,fileInput){
 }
 
 function getDateTimeStr(dt){
-    let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    let months = [
+        "January",
+        "February", 
+        "March", 
+        "April", 
+        "May", 
+        "June", 
+        "July", 
+        "August", 
+        "September", 
+        "October", 
+        "November", 
+        "December"
+    ];
     let seconds = dt.getSeconds();
     let minutes = dt.getMinutes();
     let hours = dt.getHours();
@@ -94,6 +107,6 @@ function getDateTimeStr(dt){
         }
     }
     [day,hours,minutes,seconds] = tcomponents;
-    let tz_abbr = String(String(dt).split("(")[1]).split(")")[0];
-    return `${day}/${months[month]}/${year} - ${hours}:${minutes}:${seconds} ${ampm} [${tz_abbr}]`;
+    let tz_full_name = String(String(dt).split("(")[1]).split(")")[0];
+    return `${day}/${months[month]}/${year} - ${hours}:${minutes}:${seconds} ${ampm} [${tz_full_name}]`;
 }

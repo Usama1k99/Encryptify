@@ -1,3 +1,4 @@
+import time
 from PIL import Image
 import os
 import numpy as np
@@ -132,6 +133,7 @@ def check_img(img: Image.Image,key:list) -> Image.Image:
     img_len, x = img.size
     # checking if the image is square or not (i.e length should be equal to width)
     if x != img_len:
+        img.close()
         raise TypeError(f"Given image is not encoded by PicIt, code 1")
     # img len to use as index, for ease of use, decrementing by 1 and storing in variable below
     ti_len = img_len - 1
@@ -155,11 +157,13 @@ def check_img(img: Image.Image,key:list) -> Image.Image:
         else:
             break
     if p01 != p10:
+        img.close()
         raise TypeError("Given image is not encoded by PicIt, code 2")
 
     # check if the middle value of key co-ordinate pixel is either 0 or 1 (this value represents the orientation of traversal)
     kct = img.getpixel(map_to_pixel['keyco-ord'])
     if kct[1] not in [0, 1]:
+        img.close()
         raise TypeError(f"Given image is not encoded by PicIt, code 3 {kct}")
     return img
 
@@ -309,7 +313,14 @@ def save_after(action, action_args, thr_to_join:threading.Thread, job:"django.db
             job.errs = j_errs
             job.save()
         finally:
-            os.remove(tpath)
+            threading.Thread(target=os.remove,args=[tpath]).start()
+            # try:
+            #     os.remove(tpath)
+            # except PermissionError:
+            #     time.sleep(5)
+            #     os.remove(tpath)
+            print(f"Removed File : {tpath}")
+
     else:
         ipath = paths["path"]
         img = Image.open(ipath)
@@ -319,7 +330,14 @@ def save_after(action, action_args, thr_to_join:threading.Thread, job:"django.db
             j_errs["TypeError"] = "Given Image is not a PicIt image code 1"
             job.errs = j_errs
             job.save()
-            os.remove(ipath)
+            threading.Thread(target=os.remove,args=[ipath]).start()
+            # try:
+            #     os.remove(ipath)
+            # except PermissionError:
+            #     time.sleep(5)
+            #     os.remove(ipath)
+            print(f"Removed File : {ipath}")
+
         else:
             job.result_saved = True
             job.save()

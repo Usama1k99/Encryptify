@@ -1,0 +1,8 @@
+# Files and directories ignored by Vercel deployment
+encsite/
+encryptifyenv/
+requirements.txt
+.env
+.idea/
+**/__pycache__/
+*.sqlite3
