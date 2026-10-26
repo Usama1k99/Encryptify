@@ -38,6 +38,32 @@ document.addEventListener("DOMContentLoaded", () => {
         if (xorProgressBox) xorProgressBox.classList.remove("visible");
     }
 
+    // Local robust byte reader fallback
+    const readAsBytes = async (file) => {
+        if (!file) throw new Error("No file provided.");
+        if (typeof window.readFileAsUint8Array === "function") {
+            try {
+                return await window.readFileAsUint8Array(file);
+            } catch (e) {
+                console.warn("window.readFileAsUint8Array error, trying native arrayBuffer:", e);
+            }
+        }
+        if (typeof file.arrayBuffer === "function") {
+            try {
+                const ab = await file.arrayBuffer();
+                return new Uint8Array(ab);
+            } catch (e) {
+                console.warn("file.arrayBuffer error, trying FileReader:", e);
+            }
+        }
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(new Uint8Array(reader.result));
+            reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
     function setXorFile(file) {
         if (!file) return;
         xorFile = file;
@@ -47,23 +73,24 @@ document.addEventListener("DOMContentLoaded", () => {
         xorResultCard.classList.remove("visible");
         if (xorDropzone) xorDropzone.classList.remove("field-highlight-error");
 
-        // Immediately buffer bytes into memory while Android/mobile permission lease is fresh
+        // Buffer bytes into memory immediately (protects mobile transient permissions, ready for PC)
         xorFileBuffer = null;
-        xorFilePromise = window.readFileAsUint8Array(file)
+        xorFilePromise = readAsBytes(file)
             .then(buf => {
                 xorFileBuffer = buf;
                 return buf;
             })
             .catch(err => {
-                console.error("XOR buffering error:", err);
-                xorFileBuffer = null;
-                showToast("Error loading image file: " + (err.message || "permission issue"), "error");
-                throw err;
+                console.warn("XOR buffering delayed:", err);
+                return null;
             });
     }
 
     if (xorDropzone && xorFileInput) {
-        xorDropzone.addEventListener("click", () => xorFileInput.click());
+        xorDropzone.addEventListener("click", () => {
+            xorFileInput.value = "";
+            xorFileInput.click();
+        });
         xorDropzone.addEventListener("dragover", (e) => { e.preventDefault(); xorDropzone.classList.add("dragover"); });
         xorDropzone.addEventListener("dragleave", () => xorDropzone.classList.remove("dragover"));
         xorDropzone.addEventListener("drop", (e) => {
@@ -76,6 +103,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (xorFileInput) {
+        xorFileInput.addEventListener("click", (e) => {
+            e.target.value = "";
+        });
         xorFileInput.addEventListener("change", (e) => {
             if (e.target.files && e.target.files[0]) setXorFile(e.target.files[0]);
         });
@@ -117,17 +147,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 try {
                     buffer = await xorFilePromise;
                 } catch (e) {
-                    // Fallback to re-reading below
+                    console.warn("Cached promise failed, re-reading:", e);
                 }
             }
             if (!buffer && xorFile) {
                 try {
-                    buffer = await window.readFileAsUint8Array(xorFile);
+                    buffer = await readAsBytes(xorFile);
                     xorFileBuffer = buffer;
                 } catch (readErr) {
                     if (window.highlightField) window.highlightField("ixor-dropzone");
                     throw new Error("The image file could not be read. Please tap the file area to select it again.");
                 }
+            }
+
+            if (!buffer || buffer.byteLength === 0) {
+                throw new Error("Image buffer is empty or could not be loaded.");
             }
 
             const resultData = await window.cryptoEngine.processImageXor({
@@ -258,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Immediately buffer bytes into memory while Android/mobile permission lease is fresh
         stegFileBuffer = null;
-        stegFilePromise = window.readFileAsUint8Array(file)
+        stegFilePromise = readAsBytes(file)
             .then(buf => {
                 stegFileBuffer = buf;
                 if (stegBeforeImg) {
@@ -268,15 +302,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 return buf;
             })
             .catch(err => {
-                console.error("Steganos buffering error:", err);
-                stegFileBuffer = null;
-                showToast("Error loading image file: " + (err.message || "permission issue"), "error");
-                throw err;
+                console.warn("Steganos buffering deferred or failed:", err);
+                return null;
             });
     }
 
     if (stegDropzone && stegFileInput) {
-        stegDropzone.addEventListener("click", () => stegFileInput.click());
+        stegDropzone.addEventListener("click", () => {
+            stegFileInput.value = "";
+            stegFileInput.click();
+        });
+        stegFileInput.addEventListener("click", (e) => {
+            e.target.value = "";
+        });
         stegDropzone.addEventListener("dragover", (e) => { e.preventDefault(); stegDropzone.classList.add("dragover"); });
         stegDropzone.addEventListener("dragleave", () => stegDropzone.classList.remove("dragover"));
         stegDropzone.addEventListener("drop", (e) => {
@@ -361,12 +399,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (!buffer && stegFile) {
                     try {
-                        buffer = await window.readFileAsUint8Array(stegFile);
+                        buffer = await readAsBytes(stegFile);
                         stegFileBuffer = buffer;
                     } catch (readErr) {
                         if (window.highlightField) window.highlightField("steg-dropzone");
                         throw new Error("The image file could not be read. Please tap the file area to select it again.");
                     }
+                }
+
+                if (!buffer || buffer.byteLength === 0) {
+                    throw new Error("Cover image buffer is empty or could not be loaded.");
                 }
 
                 let cipher = stegCipherSelect ? stegCipherSelect.value : "vigenere";
@@ -434,12 +476,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (!buffer && stegFile) {
                     try {
-                        buffer = await window.readFileAsUint8Array(stegFile);
+                        buffer = await readAsBytes(stegFile);
                         stegFileBuffer = buffer;
                     } catch (readErr) {
                         if (window.highlightField) window.highlightField("steg-dropzone");
                         throw new Error("The image file could not be read. Please tap the file area to select it again.");
                     }
+                }
+
+                if (!buffer || buffer.byteLength === 0) {
+                    throw new Error("Steganography image buffer is empty or could not be loaded.");
                 }
 
                 const secret = await window.cryptoEngine.steganosExtract({
@@ -623,21 +669,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Immediately buffer bytes into memory while Android/mobile permission lease is fresh
         pctFileBuffer = null;
-        pctFilePromise = window.readFileAsUint8Array(file)
+        pctFilePromise = readAsBytes(file)
             .then(buf => {
                 pctFileBuffer = buf;
                 return buf;
             })
             .catch(err => {
-                console.error("PicIt buffering error:", err);
-                pctFileBuffer = null;
-                showToast("Error loading image file: " + (err.message || "permission issue"), "error");
-                throw err;
+                console.warn("PicIt buffering deferred or failed:", err);
+                return null;
             });
     }
 
     if (pctDropzone && pctFileInput) {
-        pctDropzone.addEventListener("click", () => pctFileInput.click());
+        pctDropzone.addEventListener("click", () => {
+            pctFileInput.value = "";
+            pctFileInput.click();
+        });
+        pctFileInput.addEventListener("click", (e) => {
+            e.target.value = "";
+        });
         pctDropzone.addEventListener("dragover", (e) => { e.preventDefault(); pctDropzone.classList.add("dragover"); });
         pctDropzone.addEventListener("dragleave", () => pctDropzone.classList.remove("dragover"));
         pctDropzone.addEventListener("drop", (e) => {
@@ -760,12 +810,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (!buffer && pctFile) {
                     try {
-                        buffer = await window.readFileAsUint8Array(pctFile);
+                        buffer = await readAsBytes(pctFile);
                         pctFileBuffer = buffer;
                     } catch (readErr) {
                         if (window.highlightField) window.highlightField("pct-dropzone");
                         throw new Error("The image file could not be read. Please tap the file area to select it again.");
                     }
+                }
+
+                if (!buffer || buffer.byteLength === 0) {
+                    throw new Error("PicIt image buffer is empty or could not be loaded.");
                 }
 
                 const secret = await window.cryptoEngine.picitExtract({

@@ -7,6 +7,31 @@ document.addEventListener("DOMContentLoaded", () => {
     let processedResult = null;
     let isProcessing = false;
 
+    async function readAsBytes(file) {
+        if (!file) throw new Error("No file provided.");
+        if (typeof window.readFileAsUint8Array === "function") {
+            try {
+                return await window.readFileAsUint8Array(file);
+            } catch (e) {
+                console.warn("window.readFileAsUint8Array failed, trying fallback:", e);
+            }
+        }
+        if (typeof file.arrayBuffer === "function") {
+            try {
+                const ab = await file.arrayBuffer();
+                return new Uint8Array(ab);
+            } catch (e) {
+                console.warn("file.arrayBuffer failed, trying FileReader fallback:", e);
+            }
+        }
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(new Uint8Array(reader.result));
+            reader.onerror = () => reject(reader.error || new Error("FileReader error"));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
     // Elements
     const dropzone = document.getElementById("enig-dropzone");
     const fileInput = document.getElementById("enig-file-input");
@@ -59,16 +84,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Immediately buffer bytes into memory while Android/mobile permission lease is fresh
         selectedFileBuffer = null;
-        selectedFilePromise = window.readFileAsUint8Array(file)
+        selectedFilePromise = readAsBytes(file)
             .then(buf => {
                 selectedFileBuffer = buf;
                 return buf;
             })
             .catch(err => {
-                console.error("Enigmatrix buffering error:", err);
-                selectedFileBuffer = null;
-                showToast("Error loading file: " + (err.message || "permission issue"), "error");
-                throw err;
+                console.warn("Enigmatrix buffering deferred or failed:", err);
+                return null;
             });
     }
 
@@ -81,8 +104,14 @@ document.addEventListener("DOMContentLoaded", () => {
         dropzone.style.display = "block";
     }
 
-    if (dropzone) {
-        dropzone.addEventListener("click", () => fileInput.click());
+    if (dropzone && fileInput) {
+        dropzone.addEventListener("click", () => {
+            fileInput.value = "";
+            fileInput.click();
+        });
+        fileInput.addEventListener("click", (e) => {
+            e.target.value = "";
+        });
         dropzone.addEventListener("dragover", (e) => {
             e.preventDefault();
             dropzone.classList.add("dragover");
@@ -116,6 +145,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Load PEM file into textarea
     if (rsaFileInput) {
+        rsaFileInput.addEventListener("click", (e) => {
+            e.target.value = "";
+        });
         rsaFileInput.addEventListener("change", (e) => {
             if (e.target.files && e.target.files[0]) {
                 const reader = new FileReader();
@@ -185,12 +217,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (!buffer && selectedFile) {
                     try {
-                        buffer = await window.readFileAsUint8Array(selectedFile);
+                        buffer = await readAsBytes(selectedFile);
                         selectedFileBuffer = buffer;
                     } catch (readErr) {
                         if (window.highlightField) window.highlightField("enig-dropzone");
                         throw new Error("The file could not be read. Please tap the file area to select it again.");
                     }
+                }
+
+                if (!buffer || buffer.byteLength === 0) {
+                    throw new Error("File buffer is empty or could not be loaded.");
                 }
 
                 const result = await window.cryptoEngine.enigmatrixEncrypt({
@@ -263,12 +299,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (!buffer && selectedFile) {
                     try {
-                        buffer = await window.readFileAsUint8Array(selectedFile);
+                        buffer = await readAsBytes(selectedFile);
                         selectedFileBuffer = buffer;
                     } catch (readErr) {
                         if (window.highlightField) window.highlightField("enig-dropzone");
                         throw new Error("The file could not be read. Please tap the file area to select it again.");
                     }
+                }
+
+                if (!buffer || buffer.byteLength === 0) {
+                    throw new Error("Encrypted file buffer is empty or could not be loaded.");
                 }
 
                 const result = await window.cryptoEngine.enigmatrixDecrypt({

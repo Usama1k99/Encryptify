@@ -28,59 +28,43 @@ function showToast(message, type = "info") {
     }, 4000);
 }
 
-// Robust In-Memory File Reader for Mobile & Desktop (Android/iOS SAF compatibility)
-function readFileAsUint8Array(file) {
+// Prevent desktop browser from opening dropped files in tab when missed slightly
+window.addEventListener("dragover", (e) => e.preventDefault(), false);
+window.addEventListener("drop", (e) => e.preventDefault(), false);
+
+// Robust In-Memory File Reader for Mobile & Desktop (Android/iOS SAF & PC compatibility)
+async function readFileAsUint8Array(file) {
+    if (!file) throw new Error("No file selected.");
+    if (file instanceof Uint8Array) return file;
+    if (file instanceof ArrayBuffer) return new Uint8Array(file);
+    if (ArrayBuffer.isView(file)) return new Uint8Array(file.buffer, file.byteOffset, file.byteLength);
+
+    // Primary modern standard (faster, native C++ in desktop Chrome/Edge/Firefox/Safari and mobile)
+    if (typeof file.arrayBuffer === "function") {
+        try {
+            const ab = await file.arrayBuffer();
+            return new Uint8Array(ab);
+        } catch (e) {
+            console.warn("file.arrayBuffer() failed, trying FileReader fallback:", e);
+        }
+    }
+
+    // Fallback via FileReader
     return new Promise((resolve, reject) => {
-        if (!file) return reject(new Error("No file selected."));
-        if (file instanceof Uint8Array) return resolve(file);
-        if (file instanceof ArrayBuffer) return resolve(new Uint8Array(file));
-
-        let completed = false;
-
-        const fallbackArrayBuffer = () => {
-            if (typeof file.arrayBuffer === "function") {
-                file.arrayBuffer()
-                    .then((ab) => {
-                        if (!completed) {
-                            completed = true;
-                            resolve(new Uint8Array(ab));
-                        }
-                    })
-                    .catch((err) => {
-                        if (!completed) {
-                            completed = true;
-                            reject(err);
-                        }
-                    });
-            } else {
-                if (!completed) {
-                    completed = true;
-                    reject(new Error("Unable to read file: browser does not support FileReader or arrayBuffer."));
-                }
-            }
-        };
-
         try {
             const reader = new FileReader();
             reader.onload = () => {
-                if (!completed) {
-                    completed = true;
-                    if (reader.result instanceof ArrayBuffer) {
-                        resolve(new Uint8Array(reader.result));
-                    } else {
-                        resolve(new Uint8Array(reader.result));
-                    }
+                if (reader.result instanceof ArrayBuffer) {
+                    resolve(new Uint8Array(reader.result));
+                } else {
+                    resolve(new Uint8Array(reader.result));
                 }
             };
-            reader.onerror = () => {
-                console.warn("FileReader error, falling back to arrayBuffer()", reader.error);
-                fallbackArrayBuffer();
-            };
-            reader.onabort = () => fallbackArrayBuffer();
+            reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+            reader.onabort = () => reject(new Error("File read aborted"));
             reader.readAsArrayBuffer(file);
         } catch (err) {
-            console.warn("FileReader sync exception, falling back to arrayBuffer()", err);
-            fallbackArrayBuffer();
+            reject(err);
         }
     });
 }
@@ -352,6 +336,10 @@ document.addEventListener("DOMContentLoaded", () => {
         reader.readAsText(file);
     });
 
+    universalFileInput.addEventListener("click", (e) => {
+        e.target.value = "";
+    });
+
     // Wire upload buttons
     document.querySelectorAll(".text-file-upload-btn, .text-upload-badge-btn, .input-file-btn").forEach(btn => {
         if (!btn.querySelector("svg") && !btn.textContent.trim()) {
@@ -362,6 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const target = document.getElementById(targetId);
             if (!target || target.disabled) return;
             activeUploadTarget = target;
+            universalFileInput.value = "";
             universalFileInput.click();
         });
     });
