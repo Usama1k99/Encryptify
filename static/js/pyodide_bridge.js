@@ -88,6 +88,14 @@ class CryptoEngineBridge {
         });
     }
 
+    // Safe clone helper for transferable buffers so original UI cached data does not get detached
+    _cloneUint8(arr) {
+        if (!arr) return null;
+        const copy = new Uint8Array(arr.byteLength);
+        copy.set(arr);
+        return copy;
+    }
+
     // Text Engine
     async processText({ text, key, operation, algorithm }) {
         await this.init();
@@ -97,12 +105,14 @@ class CryptoEngineBridge {
     // Enigmatrix File Engine
     async enigmatrixEncrypt({ fileData, key, publicKeyPem, onProgress }) {
         await this.init();
-        return this._send("ENIGMATRIX_ENCRYPT", { fileData, key, publicKeyPem }, [fileData.buffer], onProgress);
+        const clone = this._cloneUint8(fileData);
+        return this._send("ENIGMATRIX_ENCRYPT", { fileData: clone, key, publicKeyPem }, [clone.buffer], onProgress);
     }
 
     async enigmatrixDecrypt({ fileData, key, privateKeyPem, onProgress }) {
         await this.init();
-        return this._send("ENIGMATRIX_DECRYPT", { fileData, key, privateKeyPem }, [fileData.buffer], onProgress);
+        const clone = this._cloneUint8(fileData);
+        return this._send("ENIGMATRIX_DECRYPT", { fileData: clone, key, privateKeyPem }, [clone.buffer], onProgress);
     }
 
     // RSA Key Utilities
@@ -114,18 +124,21 @@ class CryptoEngineBridge {
     // Image XOR
     async processImageXor({ imgData, key, operation, onProgress }) {
         await this.init();
-        return this._send("IMAGE_XOR", { imgData, key, operation }, [imgData.buffer], onProgress);
+        const clone = this._cloneUint8(imgData);
+        return this._send("IMAGE_XOR", { imgData: clone, key, operation }, [clone.buffer], onProgress);
     }
 
     // Steganography
     async steganosHide({ imgData, message, key, passwordProtected, textCipher, onProgress }) {
         await this.init();
-        return this._send("STEGANOS_HIDE", { imgData, message, key, passwordProtected, textCipher }, [imgData.buffer], onProgress);
+        const clone = this._cloneUint8(imgData);
+        return this._send("STEGANOS_HIDE", { imgData: clone, message, key, passwordProtected, textCipher }, [clone.buffer], onProgress);
     }
 
     async steganosExtract({ imgData, key, overrideCipher, onProgress }) {
         await this.init();
-        return this._send("STEGANOS_EXTRACT", { imgData, key, overrideCipher }, [imgData.buffer], onProgress);
+        const clone = this._cloneUint8(imgData);
+        return this._send("STEGANOS_EXTRACT", { imgData: clone, key, overrideCipher }, [clone.buffer], onProgress);
     }
 
     // PicIt (with configurable text cipher)
@@ -136,7 +149,8 @@ class CryptoEngineBridge {
 
     async picitExtract({ imgData, key, overrideCipher, onProgress }) {
         await this.init();
-        return this._send("PICIT_EXTRACT", { imgData, key, overrideCipher }, [imgData.buffer], onProgress);
+        const clone = this._cloneUint8(imgData);
+        return this._send("PICIT_EXTRACT", { imgData: clone, key, overrideCipher }, [clone.buffer], onProgress);
     }
 }
 

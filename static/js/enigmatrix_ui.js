@@ -2,6 +2,8 @@
 
 document.addEventListener("DOMContentLoaded", () => {
     let selectedFile = null;
+    let selectedFileBuffer = null;
+    let selectedFilePromise = null;
     let processedResult = null;
     let isProcessing = false;
 
@@ -53,11 +55,28 @@ document.addEventListener("DOMContentLoaded", () => {
         fileCard.classList.add("visible");
         dropzone.style.display = "none";
         resultBox.classList.remove("visible");
+        if (dropzone) dropzone.classList.remove("field-highlight-error");
+
+        // Immediately buffer bytes into memory while Android/mobile permission lease is fresh
+        selectedFileBuffer = null;
+        selectedFilePromise = window.readFileAsUint8Array(file)
+            .then(buf => {
+                selectedFileBuffer = buf;
+                return buf;
+            })
+            .catch(err => {
+                console.error("Enigmatrix buffering error:", err);
+                selectedFileBuffer = null;
+                showToast("Error loading file: " + (err.message || "permission issue"), "error");
+                throw err;
+            });
     }
 
     function clearFile() {
         selectedFile = null;
-        fileInput.value = "";
+        selectedFileBuffer = null;
+        selectedFilePromise = null;
+        if (fileInput) fileInput.value = "";
         fileCard.classList.remove("visible");
         dropzone.style.display = "block";
     }
@@ -103,6 +122,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 reader.onload = (evt) => {
                     if (rsaPemInput) rsaPemInput.value = evt.target.result;
                     showToast("RSA Key file loaded", "success");
+                    rsaFileInput.value = "";
+                };
+                reader.onerror = () => {
+                    showToast("Failed to read RSA key file.", "error");
+                    rsaFileInput.value = "";
                 };
                 reader.readAsText(e.target.files[0]);
             }
@@ -150,7 +174,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 resultBox.classList.remove("visible");
 
                 showToast("Encrypting file...", "info");
-                const buffer = new Uint8Array(await selectedFile.arrayBuffer());
+
+                let buffer = selectedFileBuffer;
+                if (!buffer && selectedFilePromise) {
+                    try {
+                        buffer = await selectedFilePromise;
+                    } catch (e) {
+                        // Fallback below
+                    }
+                }
+                if (!buffer && selectedFile) {
+                    try {
+                        buffer = await window.readFileAsUint8Array(selectedFile);
+                        selectedFileBuffer = buffer;
+                    } catch (readErr) {
+                        if (window.highlightField) window.highlightField("enig-dropzone");
+                        throw new Error("The file could not be read. Please tap the file area to select it again.");
+                    }
+                }
 
                 const result = await window.cryptoEngine.enigmatrixEncrypt({
                     fileData: buffer,
@@ -211,7 +252,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 resultBox.classList.remove("visible");
 
                 showToast("Decrypting file...", "info");
-                const buffer = new Uint8Array(await selectedFile.arrayBuffer());
+
+                let buffer = selectedFileBuffer;
+                if (!buffer && selectedFilePromise) {
+                    try {
+                        buffer = await selectedFilePromise;
+                    } catch (e) {
+                        // Fallback below
+                    }
+                }
+                if (!buffer && selectedFile) {
+                    try {
+                        buffer = await window.readFileAsUint8Array(selectedFile);
+                        selectedFileBuffer = buffer;
+                    } catch (readErr) {
+                        if (window.highlightField) window.highlightField("enig-dropzone");
+                        throw new Error("The file could not be read. Please tap the file area to select it again.");
+                    }
+                }
 
                 const result = await window.cryptoEngine.enigmatrixDecrypt({
                     fileData: buffer,

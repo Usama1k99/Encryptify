@@ -28,17 +28,82 @@ function showToast(message, type = "info") {
     }, 4000);
 }
 
-// Download Helper for byte arrays & text
+// Robust In-Memory File Reader for Mobile & Desktop (Android/iOS SAF compatibility)
+function readFileAsUint8Array(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) return reject(new Error("No file selected."));
+        if (file instanceof Uint8Array) return resolve(file);
+        if (file instanceof ArrayBuffer) return resolve(new Uint8Array(file));
+
+        let completed = false;
+
+        const fallbackArrayBuffer = () => {
+            if (typeof file.arrayBuffer === "function") {
+                file.arrayBuffer()
+                    .then((ab) => {
+                        if (!completed) {
+                            completed = true;
+                            resolve(new Uint8Array(ab));
+                        }
+                    })
+                    .catch((err) => {
+                        if (!completed) {
+                            completed = true;
+                            reject(err);
+                        }
+                    });
+            } else {
+                if (!completed) {
+                    completed = true;
+                    reject(new Error("Unable to read file: browser does not support FileReader or arrayBuffer."));
+                }
+            }
+        };
+
+        try {
+            const reader = new FileReader();
+            reader.onload = () => {
+                if (!completed) {
+                    completed = true;
+                    if (reader.result instanceof ArrayBuffer) {
+                        resolve(new Uint8Array(reader.result));
+                    } else {
+                        resolve(new Uint8Array(reader.result));
+                    }
+                }
+            };
+            reader.onerror = () => {
+                console.warn("FileReader error, falling back to arrayBuffer()", reader.error);
+                fallbackArrayBuffer();
+            };
+            reader.onabort = () => fallbackArrayBuffer();
+            reader.readAsArrayBuffer(file);
+        } catch (err) {
+            console.warn("FileReader sync exception, falling back to arrayBuffer()", err);
+            fallbackArrayBuffer();
+        }
+    });
+}
+window.readFileAsUint8Array = readFileAsUint8Array;
+
+// Download Helper for byte arrays & text (compatible with mobile download managers)
 function downloadBlob(data, filename, mimeType = "application/octet-stream") {
     const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
+    a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    // Keep object URL alive for 60s for mobile download managers (Android Brave/Chrome/Samsung & iOS Safari)
+    setTimeout(() => {
+        try {
+            URL.revokeObjectURL(url);
+        } catch (e) {}
+    }, 60000);
 }
 
 function getUniqueTimestamp() {
