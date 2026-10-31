@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let xorFileBuffer = null;
     let xorFilePromise = null;
     let xorResultBlob = null;
+    let xorResultObjectUrl = null;
 
     const xorDropzone = document.getElementById("ixor-dropzone");
     const xorFileInput = document.getElementById("ixor-file-input");
@@ -23,8 +24,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const xorProgressSub = document.getElementById("ixor-progress-sub");
 
     const xorResultCard = document.getElementById("ixor-result-card");
+    const xorResultBadge = document.getElementById("ixor-result-badge");
+    const xorResultMeta = document.getElementById("ixor-result-meta");
     const xorPreviewImg = document.getElementById("ixor-preview-img");
     const xorDownloadBtn = document.getElementById("ixor-download-btn");
+
+    function getXorModeLabel(mode) {
+        switch (mode) {
+            case "legacy":
+                return "Legacy Encryptify v1";
+            case "xor":
+                return "Bitwise XOR Only";
+            case "scramble":
+                return "Pixel Scrambler Only";
+            case "full":
+            default:
+                return "Main Image Encryptor";
+        }
+    }
 
     function updateXorProgress(percent, current, total) {
         if (!xorProgressBox) return;
@@ -116,10 +133,15 @@ document.addEventListener("DOMContentLoaded", () => {
             xorFile = null;
             xorFileBuffer = null;
             xorFilePromise = null;
+            if (xorResultObjectUrl) {
+                URL.revokeObjectURL(xorResultObjectUrl);
+                xorResultObjectUrl = null;
+            }
             if (xorFileInput) xorFileInput.value = "";
             xorFileCard.classList.remove("visible");
             xorDropzone.style.display = "block";
             xorResultCard.classList.remove("visible");
+            if (xorPreviewImg) xorPreviewImg.src = "";
             hideXorProgress();
         });
     }
@@ -131,10 +153,17 @@ document.addEventListener("DOMContentLoaded", () => {
             const m = xorModeSelect.value;
             if (m === "full") {
                 xorModeHint.innerHTML = "<strong>Main Image Encryptor:</strong> The full two-stage compound cipher from Image Encryptor. First scrambles pixel coordinates using key-seeded PRNG, then applies bit-reversed keystream XOR across all RGB channels.";
+            } else if (m === "legacy") {
+                xorModeHint.innerHTML = "<strong>Legacy Encryptify v1:</strong> The original two-stage cipher (PRNG Scramble + XOR) used in earlier web versions of Encryptify. Select this to decrypt images encrypted before the desktop parity update.";
             } else if (m === "xor") {
                 xorModeHint.innerHTML = "<strong>Bitwise XOR Only:</strong> Involutory keystream XOR across RGB bytes. Color values are shifted, but pixel coordinates remain in place.";
             } else if (m === "scramble") {
                 xorModeHint.innerHTML = "<strong>Pixel Scrambler Only:</strong> Shuffles pixel positions across the canvas via key-seeded PRNG, while preserving original RGB color values.";
+            }
+
+            // If an image output was already produced, inform the user to re-submit to update the preview
+            if (xorResultCard && xorResultCard.classList.contains("visible") && xorResultMeta) {
+                xorResultMeta.innerHTML = `<span style="color: var(--primary); font-weight: 600;">Method changed to ${getXorModeLabel(m)} &bull; Click Encrypt or Decrypt to update preview</span>`;
             }
         });
     }
@@ -151,13 +180,23 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const mode = xorModeSelect ? xorModeSelect.value : "full";
-        const modeLabel = mode === "full" ? "Image Encryptor" : (mode === "xor" ? "Bitwise XOR" : "Pixel Scrambler");
+        const modeLabel = getXorModeLabel(mode);
 
         try {
             xorEncryptBtn.disabled = true;
             xorDecryptBtn.disabled = true;
             hideXorProgress();
             updateXorProgress(15, 1, 4);
+
+            // Give clear visual feedback that preview is updating
+            if (xorPreviewImg) {
+                xorPreviewImg.style.transition = "opacity 0.2s ease";
+                xorPreviewImg.style.opacity = "0.35";
+            }
+            if (xorResultMeta) {
+                xorResultMeta.textContent = `Applying ${modeLabel}...`;
+            }
+
             showToast(`${op === 'encrypt' ? 'Encrypting' : 'Decrypting'} image via ${modeLabel}...`, "info");
 
             let buffer = xorFileBuffer;
@@ -194,12 +233,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
             updateXorProgress(100, 4, 4);
             xorResultBlob = new Blob([resultData], { type: "image/png" });
-            xorPreviewImg.src = URL.createObjectURL(xorResultBlob);
+
+            // Revoke previous ObjectURL to prevent memory leaks and browser cache reuse
+            if (xorResultObjectUrl) {
+                URL.revokeObjectURL(xorResultObjectUrl);
+                xorResultObjectUrl = null;
+            }
+            xorResultObjectUrl = URL.createObjectURL(xorResultBlob);
+
+            // Freshly update the preview image and badge
+            if (xorPreviewImg) {
+                xorPreviewImg.src = xorResultObjectUrl;
+                xorPreviewImg.style.opacity = "1";
+            }
+            if (xorResultBadge) {
+                xorResultBadge.textContent = `${modeLabel} (${op === 'encrypt' ? 'Encrypted' : 'Decrypted'})`;
+            }
+            if (xorResultMeta) {
+                const sizeStr = (xorResultBlob.size / 1024).toFixed(1) + " KB";
+                xorResultMeta.textContent = `${sizeStr} • Updated ${new Date().toLocaleTimeString()}`;
+            }
             xorResultCard.classList.add("visible");
 
-            showToast(`Image ${op === 'encrypt' ? 'encrypted' : 'decrypted'} successfully via ${modeLabel}!`, "success");
+            // If the preview modal is currently open, dynamically sync it immediately
+            const imgModal = document.getElementById("image-preview-modal");
+            if (imgModal && imgModal.classList.contains("open")) {
+                const imgModalImg = document.getElementById("image-preview-modal-img");
+                const imgModalTitle = document.getElementById("image-preview-modal-title");
+                const imgModalMeta = document.getElementById("image-preview-modal-meta");
+                if (imgModalImg) imgModalImg.src = xorResultObjectUrl;
+                if (imgModalTitle) imgModalTitle.textContent = `${modeLabel} Output`;
+                if (imgModalMeta) imgModalMeta.textContent = `${op === 'encrypt' ? 'Encrypted' : 'Decrypted'} PNG • Updated just now`;
+            }
+
+            showToast(`Preview updated: Image ${op === 'encrypt' ? 'encrypted' : 'decrypted'} via ${modeLabel}!`, "success");
         } catch (err) {
             console.error(err);
+            if (xorPreviewImg) xorPreviewImg.style.opacity = "1";
             showToast(`Image operation failed: ${err.message}`, "error");
         } finally {
             xorEncryptBtn.disabled = false;
@@ -215,7 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
         xorPreviewBtn.addEventListener("click", () => {
             if (xorPreviewImg && xorPreviewImg.src && window.openImagePreviewModal) {
                 const mode = xorModeSelect ? xorModeSelect.value : "full";
-                const modeLabel = mode === "full" ? "Main Image Encryptor Output" : (mode === "xor" ? "Bitwise XOR Output" : "Pixel Scrambler Output");
+                const modeLabel = `${getXorModeLabel(mode)} Output`;
                 window.openImagePreviewModal(xorPreviewImg.src, modeLabel, "Processed Image Output");
             }
         });
@@ -224,7 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
         xorPreviewImg.addEventListener("click", () => {
             if (xorPreviewImg.src && window.openImagePreviewModal) {
                 const mode = xorModeSelect ? xorModeSelect.value : "full";
-                const modeLabel = mode === "full" ? "Main Image Encryptor Output" : (mode === "xor" ? "Bitwise XOR Output" : "Pixel Scrambler Output");
+                const modeLabel = `${getXorModeLabel(mode)} Output`;
                 window.openImagePreviewModal(xorPreviewImg.src, modeLabel, "Processed Image Output");
             }
         });
@@ -235,7 +305,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (xorResultBlob) {
                 const ts = window.getUniqueTimestamp ? window.getUniqueTimestamp() : Date.now();
                 const mode = xorModeSelect ? xorModeSelect.value : "full";
-                const prefix = mode === "full" ? "image_encryptor" : (mode === "xor" ? "image_xor" : "image_scrambled");
+                const prefix = mode === "legacy" ? "image_legacy_v1" : (mode === "full" ? "image_encryptor" : (mode === "xor" ? "image_xor" : "image_scrambled"));
                 if (window.promptAndDownloadBlob) {
                     window.promptAndDownloadBlob(xorResultBlob, `${prefix}_${ts}.png`, ".png");
                 } else {

@@ -45,6 +45,26 @@ def get_image_seed(key: list) -> int:
     red_val = reduce(seed_func, rev) if len(rev) > 1 else rev[0]
     return (red_val + (sum(rev) * len(rev)) + sum(rev)) % max_seed
 
+def get_legacy_image_seed(key: list) -> int:
+    """
+    Computes seed using previous Encryptify v1 web formula for backwards compatibility.
+    """
+    if not key:
+        return 12345
+    max_seed = 4294967296  # 2**32
+    rev = key[::-1]
+    def seed_func(a, b):
+        if a % 2 == 0 and b % 2 == 0:
+            return (2 * a) + b
+        elif a % 2 == 0 and b % 2 != 0:
+            return (2 * b) + a
+        elif a % 2 != 0 and b % 2 == 0:
+            return (b + a) // a if a != 0 else (b + a)
+        else:
+            return (a * b) + (abs(b - a) // a if a != 0 else abs(b - a))
+    red_val = reduce(seed_func, rev) if len(rev) > 1 else rev[0]
+    return (red_val + (sum(rev) // len(rev))) % max_seed
+
 def img_to_array(img: Image.Image) -> np.ndarray:
     return np.array(img).flatten()
 
@@ -60,20 +80,20 @@ def xor_img_data(img_arr: np.ndarray, key: list) -> np.ndarray:
     img_arr ^= key_arr
     return img_arr
 
-def scramble_image(img: Image.Image, key: list) -> Image.Image:
+def scramble_image(img: Image.Image, key: list, legacy: bool = False) -> Image.Image:
     w, h = img.size
     data = img_to_array(img)
-    seed = get_image_seed(key)
+    seed = get_legacy_image_seed(key) if legacy else get_image_seed(key)
     np.random.seed(seed)
     scrambled = data.copy()
     np.random.shuffle(scrambled)
     np.random.seed()
     return array_to_img(scrambled, height=h, width=w)
 
-def unscramble_image(img: Image.Image, key: list) -> Image.Image:
+def unscramble_image(img: Image.Image, key: list, legacy: bool = False) -> Image.Image:
     w, h = img.size
     data = img_to_array(img)
-    seed = get_image_seed(key)
+    seed = get_legacy_image_seed(key) if legacy else get_image_seed(key)
     temp = np.arange(len(data))
     np.random.seed(seed)
     np.random.shuffle(temp)
@@ -85,6 +105,7 @@ def encrypt_image_bytes(img_bytes: bytes, key_str: str, mode: str = "full", prog
     """
     Encrypts an image using:
       - mode='full' (default): The complete two-stage process from 'Image Encryptor' (PRNG Scramble + Bitwise XOR).
+      - mode='legacy': Previous Encryptify v1 web formula (Scramble + XOR).
       - mode='xor': Bitwise XOR only (modifies RGB bytes, leaves pixel coordinates in place).
       - mode='scramble': Pixel Scrambler only (shuffles pixel coordinates, leaves RGB bytes in place).
     """
@@ -109,11 +130,18 @@ def encrypt_image_bytes(img_bytes: bytes, key_str: str, mode: str = "full", prog
         out_img = array_to_img(xored, h, w)
     elif mode == "scramble":
         if progress_cb: progress_cb(50, 2, 4)
-        out_img = scramble_image(img, key)
-    else:
-        # Full Image Encryptor process (Two-stage: PRNG Scramble + Bitwise XOR)
+        out_img = scramble_image(img, key, legacy=False)
+    elif mode in ("legacy", "v1"):
         if progress_cb: progress_cb(40, 2, 4)
-        scrambled = scramble_image(img, key)
+        scrambled = scramble_image(img, key, legacy=True)
+        if progress_cb: progress_cb(75, 3, 4)
+        arr = img_to_array(scrambled)
+        xored = xor_img_data(arr, key)
+        out_img = array_to_img(xored, h, w)
+    else:
+        # Full Image Encryptor process (Two-stage: PRNG Scramble + Bitwise XOR matching desktop)
+        if progress_cb: progress_cb(40, 2, 4)
+        scrambled = scramble_image(img, key, legacy=False)
         if progress_cb: progress_cb(75, 3, 4)
         arr = img_to_array(scrambled)
         xored = xor_img_data(arr, key)
@@ -128,6 +156,7 @@ def decrypt_image_bytes(img_bytes: bytes, key_str: str, mode: str = "full", prog
     """
     Decrypts an image using:
       - mode='full' (default): Inverts the two-stage Image Encryptor process (XOR first, Unscramble second).
+      - mode='legacy': Inverts the previous Encryptify v1 web formula.
       - mode='xor': Reapplies bitwise XOR.
       - mode='scramble': Applies inverse PRNG coordinate permutation.
     """
@@ -152,7 +181,14 @@ def decrypt_image_bytes(img_bytes: bytes, key_str: str, mode: str = "full", prog
         out_img = array_to_img(xored, h, w)
     elif mode == "scramble":
         if progress_cb: progress_cb(50, 2, 4)
-        out_img = unscramble_image(img, key)
+        out_img = unscramble_image(img, key, legacy=False)
+    elif mode in ("legacy", "v1"):
+        if progress_cb: progress_cb(45, 2, 4)
+        arr = img_to_array(img)
+        xored = xor_img_data(arr, key)
+        img2 = array_to_img(xored, h, w)
+        if progress_cb: progress_cb(80, 3, 4)
+        out_img = unscramble_image(img2, key, legacy=True)
     else:
         # Full Image Encryptor process (Reverse order: XOR first, Unscramble second)
         if progress_cb: progress_cb(45, 2, 4)
@@ -160,7 +196,7 @@ def decrypt_image_bytes(img_bytes: bytes, key_str: str, mode: str = "full", prog
         xored = xor_img_data(arr, key)
         img2 = array_to_img(xored, h, w)
         if progress_cb: progress_cb(80, 3, 4)
-        out_img = unscramble_image(img2, key)
+        out_img = unscramble_image(img2, key, legacy=False)
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format="PNG")

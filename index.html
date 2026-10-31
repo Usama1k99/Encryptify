@@ -182,9 +182,10 @@
                                 </div>
                             </div>
                             <div class="sub-accordion-body">
-                                <p><strong>Image Encryptor & Scrambler</strong> locks and unlocks photographs and graphical assets using the exact cryptographic pipeline from the original <code>Image Encryptor</code> application, with support for 3 selectable operation modes:</p>
+                                <p><strong>Image Encryptor &amp; Scrambler</strong> locks and unlocks photographs and graphical assets using the cryptographic pipeline from the desktop <code>Image Encryptor</code> application, with support for 4 selectable operation modes:</p>
                                 <ul>
                                     <li><strong>Main Image Encryptor (Full Two-Stage):</strong> Combines <em>spatial diffusion</em> and <em>color confusion</em>. First, the key is passed into a custom multi-branch mathematical reducer to derive a deterministic 32-bit PRNG seed (<code>(reduce(seed_func, key[::-1]) + sum·len + sum) mod 2³²</code>), driving a Fisher-Yates array permutation that thoroughly scatters pixel coordinates across the canvas. Next, an 8-bit bit-reversed modular keystream is tiled and XORed (<code>P ⊕ K = C</code>) across all RGB channels. Decryption strictly reverses this sequence (XOR first, coordinate unscramble second). 100% interoperable with the desktop Image Encryptor.</li>
+                                    <li><strong>Legacy Encryptify v1 (Backwards Compatibility):</strong> The original two-stage cipher (PRNG Scramble + Bitwise XOR) used in earlier web releases of Encryptify, employing the integer-division reducer seed formula (<code>(reduce(...) + sum // len) mod 2³²</code>). Guaranteed 100% backwards compatibility for decrypting earlier web-encrypted images.</li>
                                     <li><strong>Bitwise XOR Only:</strong> Involutory keystream XOR across all RGB channels without moving pixel positions. Colors are shifted, but coordinate geometry is preserved.</li>
                                     <li><strong>Pixel Scrambler Only:</strong> Shuffles pixel positions across the image canvas using the key's PRNG seed, while preserving original RGB color values and image histogram.</li>
                                 </ul>
@@ -305,7 +306,7 @@
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="static/js/pyodide_bridge.js?v=2.3"></script>
-    <script src="static/js/app.js?v=2.3"></script>
+    <script src="static/js/pyodide_bridge.js?v=2.4"></script>
+    <script src="static/js/app.js?v=2.4"></script>
 </body>
 </html>

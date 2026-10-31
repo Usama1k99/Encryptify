@@ -83,6 +83,12 @@ def test_all():
     assert list(Image.open(io.BytesIO(img_dec_scram)).getdata()) == list(test_img.getdata()), "Pixel Scramble only roundtrip mismatch"
     print("[PASS] Pixel Scramble Only Image Mode")
 
+    # 3.4 Legacy Encryptify v1 (Web Scramble + XOR Backwards Compatibility)
+    img_enc_leg = image_engine.encrypt_image_bytes(raw_img_bytes, key, mode="legacy")
+    img_dec_leg = image_engine.decrypt_image_bytes(img_enc_leg, key, mode="legacy")
+    assert list(Image.open(io.BytesIO(img_dec_leg)).getdata()) == list(test_img.getdata()), "Legacy Encryptify v1 roundtrip mismatch"
+    print("[PASS] Legacy Encryptify v1 Backwards Compatibility Mode")
+
     # 3.2 Steganography (Key embedded)
     secret_msg = "Top secret message hidden in plain sight!"
     steg_enc = image_engine.hide_steg_data(raw_img_bytes, secret_msg, key, password_protected=False)

@@ -314,6 +314,7 @@
                             <label for="ixor-mode-select" class="form-label">Encryption Algorithm / Mode</label>
                             <select id="ixor-mode-select" class="select-box">
                                 <option value="full" selected>Main Image Encryptor: Two-Stage (PRNG Scramble + Bitwise XOR)</option>
+                                <option value="legacy">Legacy Encryptify v1 (Previous Web Scramble + XOR)</option>
                                 <option value="xor">Bitwise XOR Only (Invert Color Values, Preserve Positions)</option>
                                 <option value="scramble">Pixel Scrambler Only (Shuffle Positions, Preserve Colors)</option>
                             </select>
@@ -349,6 +350,10 @@
 
                     <div>
                         <div class="result-card" id="ixor-result-card" style="margin-top: 0;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+                                <span class="card-badge" id="ixor-result-badge" style="background: rgba(0, 240, 255, 0.15); color: var(--primary); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;">Main Image Encryptor</span>
+                                <span id="ixor-result-meta" style="font-size: 0.8rem; color: var(--text-muted);">Output Ready</span>
+                            </div>
                             <div class="image-preview-wrapper">
                                 <img id="ixor-preview-img" alt="XOR Preview" title="Click to view full preview">
                             </div>
@@ -392,8 +397,8 @@
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="static/js/pyodide_bridge.js?v=2.3"></script>
-    <script src="static/js/app.js?v=2.3"></script>
-    <script src="static/js/image_ui.js?v=2.3"></script>
+    <script src="static/js/pyodide_bridge.js?v=2.4"></script>
+    <script src="static/js/app.js?v=2.4"></script>
+    <script src="static/js/image_ui.js?v=2.4"></script>
 </body>
 </html>
