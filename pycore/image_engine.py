@@ -1,6 +1,7 @@
 import io
 import math
 import random
+from functools import reduce
 from PIL import Image
 import numpy as np
 from .cfg import STEG_SIGNATURE_TEXT, STEG_PREFIX_TEXT, PICIT_SIGNATURE_TEXT
@@ -21,7 +22,28 @@ ALGO_REV_MAP = {v: k for k, v in ALGO_MAP.items()}
 ALGO_REV_MAP["vigenere+"] = 5
 ALGO_REV_MAP["vigenere-plus"] = 5
 
-# ==================== 1. IMAGE XOR & SCRAMBLE ====================
+# ==================== 1. IMAGE ENCRYPTOR & SCRAMBLE ====================
+
+def get_image_seed(key: list) -> int:
+    """
+    Computes exact 32-bit PRNG seed matching D:\\PartA\\Usama\\Programming\\Image Encryptor.
+    Uses reversed key array through custom multi-branch reducer + sum/length quadratic weighting.
+    """
+    if not key:
+        return 0
+    max_seed = 4294967296  # 2**32
+    rev = key[::-1]
+    def seed_func(a, b):
+        if a % 2 == 0 and b % 2 == 0:
+            return (2 * a) + b
+        elif a % 2 == 0 and b % 2 != 0:
+            return (2 * b) + a
+        elif a % 2 != 0 and b % 2 == 0:
+            return (b + a) // a if a != 0 else (b + a)
+        else:
+            return (a * b) + (abs(b - a) // a if a != 0 else abs(b - a))
+    red_val = reduce(seed_func, rev) if len(rev) > 1 else rev[0]
+    return (red_val + (sum(rev) * len(rev)) + sum(rev)) % max_seed
 
 def img_to_array(img: Image.Image) -> np.ndarray:
     return np.array(img).flatten()
@@ -41,22 +63,35 @@ def xor_img_data(img_arr: np.ndarray, key: list) -> np.ndarray:
 def scramble_image(img: Image.Image, key: list) -> Image.Image:
     w, h = img.size
     data = img_to_array(img)
-    seed = text_engine.get_seed(key[::-1])
-    data = text_engine.scramble_array(data, seed)
-    return array_to_img(data, height=h, width=w)
+    seed = get_image_seed(key)
+    np.random.seed(seed)
+    scrambled = data.copy()
+    np.random.shuffle(scrambled)
+    np.random.seed()
+    return array_to_img(scrambled, height=h, width=w)
 
 def unscramble_image(img: Image.Image, key: list) -> Image.Image:
     w, h = img.size
     data = img_to_array(img)
-    seed = text_engine.get_seed(key[::-1])
-    data = text_engine.unscramble_array(data, seed)
-    return array_to_img(data, height=h, width=w)
+    seed = get_image_seed(key)
+    temp = np.arange(len(data))
+    np.random.seed(seed)
+    np.random.shuffle(temp)
+    np.random.seed()
+    sorted_indices = np.argsort(temp)
+    return array_to_img(data[sorted_indices], height=h, width=w)
 
-def encrypt_image_bytes(img_bytes: bytes, key_str: str, progress_cb = None) -> bytes:
+def encrypt_image_bytes(img_bytes: bytes, key_str: str, mode: str = "full", progress_cb = None) -> bytes:
+    """
+    Encrypts an image using:
+      - mode='full' (default): The complete two-stage process from 'Image Encryptor' (PRNG Scramble + Bitwise XOR).
+      - mode='xor': Bitwise XOR only (modifies RGB bytes, leaves pixel coordinates in place).
+      - mode='scramble': Pixel Scrambler only (shuffles pixel coordinates, leaves RGB bytes in place).
+    """
     if not img_bytes:
         raise ValueError("Please provide an image file.")
     if not key_str or not str(key_str).strip():
-        raise ValueError("Please provide an encryption key for image scrambling.")
+        raise ValueError("Please provide an encryption key for image encryption.")
     if progress_cb: progress_cb(15, 1, 4)
     key = text_engine.get_key(key_str)
     try:
@@ -64,24 +99,42 @@ def encrypt_image_bytes(img_bytes: bytes, key_str: str, progress_cb = None) -> b
     except Exception:
         raise ValueError("Uploaded file is not a valid image format.")
     w, h = img.size
-    if progress_cb: progress_cb(40, 2, 4)
-    # 1. Scramble pixels
-    scrambled = scramble_image(img, key)
-    if progress_cb: progress_cb(75, 3, 4)
-    # 2. XOR RGB array
-    arr = img_to_array(scrambled)
-    xored = xor_img_data(arr, key)
-    out_img = array_to_img(xored, h, w)
+
+    mode = (mode or "full").lower()
+
+    if mode == "xor":
+        if progress_cb: progress_cb(50, 2, 4)
+        arr = img_to_array(img)
+        xored = xor_img_data(arr, key)
+        out_img = array_to_img(xored, h, w)
+    elif mode == "scramble":
+        if progress_cb: progress_cb(50, 2, 4)
+        out_img = scramble_image(img, key)
+    else:
+        # Full Image Encryptor process (Two-stage: PRNG Scramble + Bitwise XOR)
+        if progress_cb: progress_cb(40, 2, 4)
+        scrambled = scramble_image(img, key)
+        if progress_cb: progress_cb(75, 3, 4)
+        arr = img_to_array(scrambled)
+        xored = xor_img_data(arr, key)
+        out_img = array_to_img(xored, h, w)
+
     out_buf = io.BytesIO()
     out_img.save(out_buf, format="PNG")
     if progress_cb: progress_cb(100, 4, 4)
     return out_buf.getvalue()
 
-def decrypt_image_bytes(img_bytes: bytes, key_str: str, progress_cb = None) -> bytes:
+def decrypt_image_bytes(img_bytes: bytes, key_str: str, mode: str = "full", progress_cb = None) -> bytes:
+    """
+    Decrypts an image using:
+      - mode='full' (default): Inverts the two-stage Image Encryptor process (XOR first, Unscramble second).
+      - mode='xor': Reapplies bitwise XOR.
+      - mode='scramble': Applies inverse PRNG coordinate permutation.
+    """
     if not img_bytes:
         raise ValueError("Please provide an image file.")
     if not key_str or not str(key_str).strip():
-        raise ValueError("Please provide the encryption key used to scramble the image.")
+        raise ValueError("Please provide the encryption key used to encrypt the image.")
     if progress_cb: progress_cb(15, 1, 4)
     key = text_engine.get_key(key_str)
     try:
@@ -89,14 +142,26 @@ def decrypt_image_bytes(img_bytes: bytes, key_str: str, progress_cb = None) -> b
     except Exception:
         raise ValueError("Uploaded file is not a valid image format.")
     w, h = img.size
-    if progress_cb: progress_cb(45, 2, 4)
-    # 1. XOR back
-    arr = img_to_array(img)
-    xored = xor_img_data(arr, key)
-    img2 = array_to_img(xored, h, w)
-    if progress_cb: progress_cb(80, 3, 4)
-    # 2. Unscramble pixels
-    out_img = unscramble_image(img2, key)
+
+    mode = (mode or "full").lower()
+
+    if mode == "xor":
+        if progress_cb: progress_cb(50, 2, 4)
+        arr = img_to_array(img)
+        xored = xor_img_data(arr, key)
+        out_img = array_to_img(xored, h, w)
+    elif mode == "scramble":
+        if progress_cb: progress_cb(50, 2, 4)
+        out_img = unscramble_image(img, key)
+    else:
+        # Full Image Encryptor process (Reverse order: XOR first, Unscramble second)
+        if progress_cb: progress_cb(45, 2, 4)
+        arr = img_to_array(img)
+        xored = xor_img_data(arr, key)
+        img2 = array_to_img(xored, h, w)
+        if progress_cb: progress_cb(80, 3, 4)
+        out_img = unscramble_image(img2, key)
+
     out_buf = io.BytesIO()
     out_img.save(out_buf, format="PNG")
     if progress_cb: progress_cb(100, 4, 4)

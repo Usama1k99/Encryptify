@@ -65,11 +65,23 @@ def test_all():
     test_img.save(img_buf, format="PNG")
     raw_img_bytes = img_buf.getvalue()
 
-    # 3.1 Image XOR
-    img_enc = image_engine.encrypt_image_bytes(raw_img_bytes, key)
-    img_dec = image_engine.decrypt_image_bytes(img_enc, key)
-    assert len(img_dec) > 0
-    print("[PASS] Image XOR & Scrambling")
+    # 3.1 Main Image Encryptor (Full Two-Stage: Scramble + XOR)
+    img_enc = image_engine.encrypt_image_bytes(raw_img_bytes, key, mode="full")
+    img_dec = image_engine.decrypt_image_bytes(img_enc, key, mode="full")
+    assert list(Image.open(io.BytesIO(img_dec)).getdata()) == list(test_img.getdata()), "Full Image Encryptor roundtrip mismatch"
+    print("[PASS] Main Image Encryptor (PRNG Scramble + Bitwise XOR)")
+
+    # 3.2 Bitwise XOR Only
+    img_enc_xor = image_engine.encrypt_image_bytes(raw_img_bytes, key, mode="xor")
+    img_dec_xor = image_engine.decrypt_image_bytes(img_enc_xor, key, mode="xor")
+    assert list(Image.open(io.BytesIO(img_dec_xor)).getdata()) == list(test_img.getdata()), "Bitwise XOR only roundtrip mismatch"
+    print("[PASS] Bitwise XOR Only Image Mode")
+
+    # 3.3 Pixel Scramble Only
+    img_enc_scram = image_engine.encrypt_image_bytes(raw_img_bytes, key, mode="scramble")
+    img_dec_scram = image_engine.decrypt_image_bytes(img_enc_scram, key, mode="scramble")
+    assert list(Image.open(io.BytesIO(img_dec_scram)).getdata()) == list(test_img.getdata()), "Pixel Scramble only roundtrip mismatch"
+    print("[PASS] Pixel Scramble Only Image Mode")
 
     # 3.2 Steganography (Key embedded)
     secret_msg = "Top secret message hidden in plain sight!"

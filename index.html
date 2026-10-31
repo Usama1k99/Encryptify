@@ -173,18 +173,21 @@
                             </div>
                         </div>
 
-                        <!-- 3. Image XOR Scrambler -->
+                        <!-- 3. Image Encryptor & XOR Scrambler -->
                         <div class="sub-accordion-item">
                             <div class="sub-accordion-header">
-                                <span>3. Image XOR Scrambler / Unscrambler</span>
+                                <span>3. Image Encryptor & XOR Scrambler (3 Modular Modes)</span>
                                 <div class="sub-chevron-icon">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
                                 </div>
                             </div>
                             <div class="sub-accordion-body">
-                                <p><strong>Image XOR Scrambler</strong> locks and unlocks existing photographs and graphical assets using bitwise keystreams and spatial coordinate permutations.</p>
-                                <p>The engine flattens 3D RGB arrays into contiguous 1D byte vectors and derives a repeating modular keystream matching the image's byte dimension from the password hash. Bitwise XOR operations (<code>P ⊕ K = C</code>) modify pixel color values, followed by a Fisher-Yates coordinate shuffle seeded by the key's PRNG state.</p>
-                                <p>Decryption restores pixel positions via the inverse permutation trajectory and reapplies the identical XOR keystream, restoring the photograph with 100% losslessness.</p>
+                                <p><strong>Image Encryptor & Scrambler</strong> locks and unlocks photographs and graphical assets using the exact cryptographic pipeline from the original <code>Image Encryptor</code> application, with support for 3 selectable operation modes:</p>
+                                <ul>
+                                    <li><strong>Main Image Encryptor (Full Two-Stage):</strong> Combines <em>spatial diffusion</em> and <em>color confusion</em>. First, the key is passed into a custom multi-branch mathematical reducer to derive a deterministic 32-bit PRNG seed (<code>(reduce(seed_func, key[::-1]) + sum·len + sum) mod 2³²</code>), driving a Fisher-Yates array permutation that thoroughly scatters pixel coordinates across the canvas. Next, an 8-bit bit-reversed modular keystream is tiled and XORed (<code>P ⊕ K = C</code>) across all RGB channels. Decryption strictly reverses this sequence (XOR first, coordinate unscramble second). 100% interoperable with the desktop Image Encryptor.</li>
+                                    <li><strong>Bitwise XOR Only:</strong> Involutory keystream XOR across all RGB channels without moving pixel positions. Colors are shifted, but coordinate geometry is preserved.</li>
+                                    <li><strong>Pixel Scrambler Only:</strong> Shuffles pixel positions across the image canvas using the key's PRNG seed, while preserving original RGB color values and image histogram.</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -302,7 +305,7 @@
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="static/js/pyodide_bridge.js?v=2.2"></script>
-    <script src="static/js/app.js?v=2.2"></script>
+    <script src="static/js/pyodide_bridge.js?v=2.3"></script>
+    <script src="static/js/app.js?v=2.3"></script>
 </body>
 </html>

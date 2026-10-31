@@ -286,14 +286,14 @@
                 </div>
             </div>
 
-            <!-- 3. Image XOR & Pixel Scrambling (Full Width) -->
+            <!-- 3. Image Encryptor & Pixel Scrambling (Full Width) -->
             <div class="glass-card" style="margin-top: 24px;">
                 <div class="card-header">
                     <div>
-                        <h2 class="card-title">Image XOR Scrambler / Unscrambler</h2>
-                        <p class="input-hint">Cryptographically scramble pixel coordinates and apply bitwise XOR keystreams to lock and unlock images.</p>
+                        <h2 class="card-title">Image Encryptor & XOR Scrambler</h2>
+                        <p class="input-hint">The main compound algorithm from Image Encryptor (PRNG coordinate permutation + bitwise XOR), or individual XOR / Scramble modes.</p>
                     </div>
-                    <span class="card-badge">XOR & Scramble</span>
+                    <span class="card-badge">Image Encryptor</span>
                 </div>
 
                 <div class="grid-2">
@@ -308,6 +308,18 @@
                                 <div class="file-name" id="ixor-file-name">image.png</div>
                             </div>
                             <button class="remove-file-btn" id="ixor-remove-file">✕</button>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label for="ixor-mode-select" class="form-label">Encryption Algorithm / Mode</label>
+                            <select id="ixor-mode-select" class="select-box">
+                                <option value="full" selected>Main Image Encryptor: Two-Stage (PRNG Scramble + Bitwise XOR)</option>
+                                <option value="xor">Bitwise XOR Only (Invert Color Values, Preserve Positions)</option>
+                                <option value="scramble">Pixel Scrambler Only (Shuffle Positions, Preserve Colors)</option>
+                            </select>
+                            <div class="input-hint" id="ixor-mode-hint" style="margin-top: 8px; padding: 10px 14px; background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: var(--radius-md);">
+                                <strong>Main Image Encryptor:</strong> The full two-stage compound cipher from Image Encryptor. First scrambles pixel coordinates using key-seeded PRNG, then applies bit-reversed keystream XOR across all RGB channels.
+                            </div>
                         </div>
 
                         <div class="form-group" style="margin-top: 16px;">
@@ -380,8 +392,8 @@
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Scripts -->
-    <script src="static/js/pyodide_bridge.js?v=2.2"></script>
-    <script src="static/js/app.js?v=2.2"></script>
-    <script src="static/js/image_ui.js?v=2.2"></script>
+    <script src="static/js/pyodide_bridge.js?v=2.3"></script>
+    <script src="static/js/app.js?v=2.3"></script>
+    <script src="static/js/image_ui.js?v=2.3"></script>
 </body>
 </html>

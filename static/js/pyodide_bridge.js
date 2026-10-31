@@ -139,12 +139,12 @@ class CryptoEngineBridge {
         return this._send("RSA_GENERATE", { keySize });
     }
 
-    // Image XOR
-    async processImageXor({ imgData, key, operation, onProgress }) {
+    // Image XOR & Image Encryptor
+    async processImageXor({ imgData, key, operation, mode = "full", onProgress }) {
         await this.init();
         const clone = this._cloneUint8(imgData);
         const transferables = (clone && clone.buffer) ? [clone.buffer] : [];
-        return this._send("IMAGE_XOR", { imgData: clone, key, operation }, transferables, onProgress);
+        return this._send("IMAGE_XOR", { imgData: clone, key, operation, mode }, transferables, onProgress);
     }
 
     // Steganography

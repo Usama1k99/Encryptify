@@ -146,12 +146,13 @@ priv, pub = key_utils.generate_rsa_keypair(k_size)
             }
 
             case "IMAGE_XOR": {
-                const { imgData, key, operation } = payload;
+                const { imgData, key, operation, mode } = payload;
                 pyodide.globals.set("img_raw", imgData);
                 pyodide.globals.set("ix_key", key);
+                pyodide.globals.set("ix_mode", mode || "full");
                 const pyCode = operation === "encrypt" 
-                    ? `image_engine.encrypt_image_bytes(bytes(img_raw), ix_key, progress_cb=py_progress)`
-                    : `image_engine.decrypt_image_bytes(bytes(img_raw), ix_key, progress_cb=py_progress)`;
+                    ? `image_engine.encrypt_image_bytes(bytes(img_raw), ix_key, mode=ix_mode, progress_cb=py_progress)`
+                    : `image_engine.decrypt_image_bytes(bytes(img_raw), ix_key, mode=ix_mode, progress_cb=py_progress)`;
                 const resBytes = pyodide.runPython(pyCode);
                 const jsArray = new Uint8Array(resBytes.toJs());
                 sendMsg("SUCCESS", { id, result: jsArray }, [jsArray.buffer]);
