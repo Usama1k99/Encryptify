@@ -179,8 +179,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return showToast("Please provide an encryption key.", "error");
         }
 
-        const mode = xorModeSelect ? xorModeSelect.value : "full";
+        const modeEl = document.getElementById("ixor-mode-select");
+        const mode = modeEl ? modeEl.value : (xorModeSelect ? xorModeSelect.value : "full");
         const modeLabel = getXorModeLabel(mode);
+        console.log(`[ImageUI handleXorOperation] Triggered: op=${op}, mode=${mode}, modeLabel=${modeLabel}`);
 
         try {
             xorEncryptBtn.disabled = true;
@@ -243,8 +245,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Freshly update the preview image and badge
             if (xorPreviewImg) {
+                xorPreviewImg.onload = () => {
+                    xorPreviewImg.style.opacity = "1";
+                };
                 xorPreviewImg.src = xorResultObjectUrl;
-                xorPreviewImg.style.opacity = "1";
+                if (xorPreviewImg.animate) {
+                    xorPreviewImg.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 250, fill: "forwards" });
+                }
             }
             if (xorResultBadge) {
                 xorResultBadge.textContent = `${modeLabel} (${op === 'encrypt' ? 'Encrypted' : 'Decrypted'})`;
@@ -284,7 +291,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (xorPreviewBtn) {
         xorPreviewBtn.addEventListener("click", () => {
             if (xorPreviewImg && xorPreviewImg.src && window.openImagePreviewModal) {
-                const mode = xorModeSelect ? xorModeSelect.value : "full";
+                const modeEl = document.getElementById("ixor-mode-select");
+                const mode = modeEl ? modeEl.value : (xorModeSelect ? xorModeSelect.value : "full");
                 const modeLabel = `${getXorModeLabel(mode)} Output`;
                 window.openImagePreviewModal(xorPreviewImg.src, modeLabel, "Processed Image Output");
             }
@@ -293,10 +301,27 @@ document.addEventListener("DOMContentLoaded", () => {
     if (xorPreviewImg) {
         xorPreviewImg.addEventListener("click", () => {
             if (xorPreviewImg.src && window.openImagePreviewModal) {
-                const mode = xorModeSelect ? xorModeSelect.value : "full";
+                const modeEl = document.getElementById("ixor-mode-select");
+                const mode = modeEl ? modeEl.value : (xorModeSelect ? xorModeSelect.value : "full");
                 const modeLabel = `${getXorModeLabel(mode)} Output`;
                 window.openImagePreviewModal(xorPreviewImg.src, modeLabel, "Processed Image Output");
             }
+        });
+    }
+
+    const xorUseInputBtn = document.getElementById("ixor-use-input-btn");
+    if (xorUseInputBtn) {
+        xorUseInputBtn.addEventListener("click", () => {
+            if (!xorResultBlob) {
+                return showToast("No processed output image available.", "error");
+            }
+            const modeEl = document.getElementById("ixor-mode-select");
+            const mode = modeEl ? modeEl.value : (xorModeSelect ? xorModeSelect.value : "full");
+            const modeLabel = getXorModeLabel(mode);
+            const fileName = `processed_${mode}_${Date.now()}.png`;
+            const file = new File([xorResultBlob], fileName, { type: "image/png" });
+            setXorFile(file);
+            showToast(`Loaded ${modeLabel} output as input image! Ready to decrypt or re-process.`, "info");
         });
     }
 
@@ -304,7 +329,8 @@ document.addEventListener("DOMContentLoaded", () => {
         xorDownloadBtn.addEventListener("click", () => {
             if (xorResultBlob) {
                 const ts = window.getUniqueTimestamp ? window.getUniqueTimestamp() : Date.now();
-                const mode = xorModeSelect ? xorModeSelect.value : "full";
+                const modeEl = document.getElementById("ixor-mode-select");
+                const mode = modeEl ? modeEl.value : (xorModeSelect ? xorModeSelect.value : "full");
                 const prefix = mode === "legacy" ? "image_legacy_v1" : (mode === "full" ? "image_encryptor" : (mode === "xor" ? "image_xor" : "image_scrambled"));
                 if (window.promptAndDownloadBlob) {
                     window.promptAndDownloadBlob(xorResultBlob, `${prefix}_${ts}.png`, ".png");

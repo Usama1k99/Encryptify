@@ -147,14 +147,18 @@ priv, pub = key_utils.generate_rsa_keypair(k_size)
 
             case "IMAGE_XOR": {
                 const { imgData, key, operation, mode } = payload;
+                const safeMode = (mode || "full").toLowerCase().trim();
+                console.log(`[Worker IMAGE_XOR] Action received: op=${operation}, mode=${safeMode}, payloadMode=${mode}`);
                 pyodide.globals.set("img_raw", imgData);
                 pyodide.globals.set("ix_key", key);
-                pyodide.globals.set("ix_mode", mode || "full");
+                pyodide.globals.set("ix_mode", safeMode);
+                const pyModeStr = JSON.stringify(safeMode);
                 const pyCode = operation === "encrypt" 
-                    ? `image_engine.encrypt_image_bytes(bytes(img_raw), ix_key, mode=ix_mode, progress_cb=py_progress)`
-                    : `image_engine.decrypt_image_bytes(bytes(img_raw), ix_key, mode=ix_mode, progress_cb=py_progress)`;
+                    ? `image_engine.encrypt_image_bytes(bytes(img_raw), ix_key, mode=${pyModeStr}, progress_cb=py_progress)`
+                    : `image_engine.decrypt_image_bytes(bytes(img_raw), ix_key, mode=${pyModeStr}, progress_cb=py_progress)`;
                 const resBytes = pyodide.runPython(pyCode);
                 const jsArray = new Uint8Array(resBytes.toJs());
+                console.log(`[Worker IMAGE_XOR] Completed: op=${operation}, mode=${safeMode}, outputBytes=${jsArray.byteLength}`);
                 sendMsg("SUCCESS", { id, result: jsArray }, [jsArray.buffer]);
                 break;
             }

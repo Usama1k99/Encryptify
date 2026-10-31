@@ -27,7 +27,8 @@ class CryptoEngineBridge {
         if (this.initPromise) return this.initPromise;
 
         this.initPromise = new Promise((resolve, reject) => {
-            this.worker = new Worker("static/js/worker.js");
+            const workerVersion = "2.5." + Date.now();
+            this.worker = new Worker(`static/js/worker.js?v=${workerVersion}`);
 
             this.worker.onmessage = (e) => {
                 const { type, id, result, message, percent, currentBlock, totalBlocks } = e.data;
@@ -144,6 +145,7 @@ class CryptoEngineBridge {
         await this.init();
         const clone = this._cloneUint8(imgData);
         const transferables = (clone && clone.buffer) ? [clone.buffer] : [];
+        console.log(`[Bridge processImageXor] Sending IMAGE_XOR action: op=${operation}, mode=${mode}`);
         return this._send("IMAGE_XOR", { imgData: clone, key, operation, mode }, transferables, onProgress);
     }
 
